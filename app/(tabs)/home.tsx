@@ -1,10 +1,10 @@
-import { useRouter } from 'expo-router';
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, Image as RNImage, Alert, ScrollView } from 'react-native';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { ThemedText } from '@/components/ThemedText';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Importar AsyncStorage
 import { Image } from 'expo-image';
-// Se removió Parallax y gradiente para un layout plano tipo la captura.
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { Alert, FlatList, Image as RNImage, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 type FavoritePokemon = {
   id: number;
@@ -13,14 +13,7 @@ type FavoritePokemon = {
   types: string[];
 };
 
-const mockFavorites: FavoritePokemon[] = [
-  { id: 1, name: 'Bulbasaur', image: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/1.png', types: ['grass','poison'] },
-  { id: 4, name: 'Charmander', image: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/4.png', types: ['fire'] },
-  { id: 7, name: 'Squirtle', image: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/7.png', types: ['water'] },
-  { id: 25, name: 'Pikachu', image: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png', types: ['electric'] },
-  { id: 92, name: 'Gastly', image: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/92.png', types: ['ghost','poison'] },
-  { id: 132, name: 'Ditto', image: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/132.png', types: ['normal'] },
-];
+const FAVORITES_KEY = 'favoritePokemons'; // Clave para almacenar favoritos
 
 const typeColors: Record<string,string> = {
   grass: '#63BC5A',
@@ -30,6 +23,17 @@ const typeColors: Record<string,string> = {
   electric: '#F4D23C',
   ghost: '#5269AD',
   normal: '#919AA2',
+  fighting: '#CE416B',
+  flying: '#89AAE3',
+  ground: '#D97845',
+  rock: '#C5B78C',
+  bug: '#91C12F',
+  psychic: '#FA7179',
+  ice: '#73CEC0',
+  dragon: '#0B6DC3',
+  dark: '#5A5465',
+  steel: '#5A8EA2',
+  fairy: '#EC8FE6',
   default: '#E0306A',
 };
 
@@ -41,14 +45,55 @@ export default function HomeProfileScreen() {
   const trainerName = 'Ash Ketchum';
   const handle = '@Ash';
   const bio = 'Fan de los tipo eléctrico.';
+  const [favorites, setFavorites] = useState<FavoritePokemon[]>([]); // Estado para favoritos reales
 
   // stats mock
   const stats = { followers: 1280, following: 256};
 
-  // simulate fetch
-  useEffect(()=>{ const t = setTimeout(()=>setLoading(false), 800); return ()=>clearTimeout(t); },[]);
+  // Cargar favoritos al iniciar
+  useEffect(() => {
+    loadFavorites();
+  }, []);
 
-  const favorites = mockFavorites.slice(0,6);
+  // Función para cargar favoritos desde AsyncStorage
+  const loadFavorites = async () => {
+    try {
+      const storedFavorites = await AsyncStorage.getItem(FAVORITES_KEY);
+      if (storedFavorites !== null) {
+        const favoriteIds = JSON.parse(storedFavorites);
+        
+        // Obtener información completa de los Pokémon favoritos
+        const favoritePokemons = await Promise.all(
+          favoriteIds.map(async (id: number) => {
+            try {
+              // Aquí deberías tener una función para obtener datos de Pokémon por ID
+              // Por ahora, usaremos datos básicos
+              const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+              const data = await response.json();
+              
+              return {
+                id: data.id,
+                name: data.name,
+                image: data.sprites.other['official-artwork'].front_default,
+                types: data.types.map((type: any) => type.type.name)
+              };
+            } catch (error) {
+              console.error(`Error loading pokemon ${id}:`, error);
+              return null;
+            }
+          })
+        );
+        
+        // Filtrar cualquier Pokémon que no se pudo cargar
+        const validPokemons = favoritePokemons.filter(pokemon => pokemon !== null) as FavoritePokemon[];
+        setFavorites(validPokemons);
+      }
+    } catch (error) {
+      console.error('Error loading favorites:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Ya no usamos gradiente, fondo exterior rojo y contenedor interior oscuro.
 
@@ -94,13 +139,13 @@ export default function HomeProfileScreen() {
       <View style={styles.statsRow}>
         <Stat label="Followers" value={stats.followers} />
         <Stat label="Following" value={stats.following} />
-
+        <Stat label="Favorites" value={favorites.length} />
       </View>
 
       <View style={styles.sectionHeader}>
         <ThemedText type="subtitle" style={styles.sectionTitle}>Favorite Pokémon</ThemedText>
-        <TouchableOpacity>
-          <ThemedText type="link">Manage</ThemedText>
+        <TouchableOpacity onPress={loadFavorites}>
+          <ThemedText type="link">Refresh</ThemedText>
         </TouchableOpacity>
       </View>
 
@@ -113,6 +158,12 @@ export default function HomeProfileScreen() {
             </View>
           ))}
         </View>
+      ) : favorites.length === 0 ? (
+        <View style={styles.emptyState}>
+          <MaterialIcons name="favorite-border" size={48} color="#666" />
+          <ThemedText style={styles.emptyText}>No favorite Pokémon yet</ThemedText>
+          <ThemedText style={styles.emptySubtext}>Add some Pokémon to your favorites in the Pokédex</ThemedText>
+        </View>
       ) : (
         <FlatList
           data={favorites}
@@ -121,10 +172,13 @@ export default function HomeProfileScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.favList}
           renderItem={({item})=>(
-            <TouchableOpacity style={styles.favCard}>
+            <TouchableOpacity 
+              style={styles.favCard}
+              onPress={() => router.push({ pathname: "/pokemonDetail", params: { id: item.id } })}
+            >
               <View style={styles.typeChips}>
                 {item.types.map(t=>(
-                  <View key={t} style={[styles.typeChip,{ backgroundColor: (typeColors[t]||'#666')+'CC'}]}>
+                  <View key={t} style={[styles.typeChip,{ backgroundColor: (typeColors[t]||typeColors.default)+'CC'}]}>
                     <ThemedText style={styles.typeChipText}>{t}</ThemedText>
                   </View>
                 ))}
@@ -258,6 +312,30 @@ const styles = StyleSheet.create({
   skelBar:{
     height:12, backgroundColor:'#383840', borderRadius:6, width:'70%'
   },
+  
+  // Empty state
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+    marginHorizontal: 20,
+    backgroundColor: '#2A2A31',
+    borderRadius: 20,
+    marginTop: 12,
+  },
+  emptyText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 16,
+  },
+  emptySubtext: {
+    color: '#AAAAAA',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  
   headerImage: {
     color: '#808080',
     bottom: -90,

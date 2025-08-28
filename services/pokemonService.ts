@@ -1,108 +1,116 @@
+// services/pokemonService.ts
 export interface Pokemon {
   id: number;
   name: string;
-  image: any; // require() returns a number
-}
-
-export interface PokemonDetail extends Pokemon {
-  types: string[];
-  weaknesses: string[];
-  weight: string;
-  height: string;
-  stats: {
+  image: string;
+  types?: string[];
+  abilities?: string[];
+  stats?: {
     hp: number;
     attack: number;
     defense: number;
+    specialAttack: number;
+    specialDefense: number;
     speed: number;
   };
-  evolutionLine: {
-    name: string;
-    image: any;
-  }[];
 }
 
-const pokemonListData: Pokemon[] = [
-  {
-    id: 1,
-    name: "Bulbasaur",
-    image: require("../assets/images/Bulbasaur.png"),
-  },
-  {
-    id: 2,
-    name: "Ivysaur",
-    image: require("../assets/images/Ivysaur.png"),
-  },
-  {
-    id: 3,
-    name: "Venusaur",
-    image: require("../assets/images/Venusaur.png"),
-  },
-];
-
-const pokemonDetailsData: Record<number, PokemonDetail> = {
-  1: {
-    id: 1,
-    name: "Bulbasaur",
-    image: require("../assets/images/Bulbasaur.png"),
-    types: ["grass", "poison"],
-    weaknesses: ["fire", "ice", "flying", "psychic"],
-    weight: "6.9 kg",
-    height: "0.7 m",
-    stats: {
-      hp: 45,
-      attack: 49,
-      defense: 49,
-      speed: 45,
-    },
-    evolutionLine: [
-      { name: "Bulbasaur", image: require("../assets/images/Bulbasaur.png") },
-      { name: "Ivysaur", image: require("../assets/images/Ivysaur.png") },
-      { name: "Venusaur", image: require("../assets/images/Venusaur.png") },
-    ],
-  },
-  2: {
-    id: 2,
-    name: "Ivysaur",
-    image: require("../assets/images/Ivysaur.png"),
-    types: ["grass", "poison"],
-    weaknesses: ["fire", "ice", "flying", "psychic"],
-    weight: "13.0 kg",
-    height: "1.0 m",
-    stats: {
-      hp: 60,
-      attack: 62,
-      defense: 63,
-      speed: 60,
-    },
-    evolutionLine: [
-        { name: "Bulbasaur", image: require("../assets/images/Bulbasaur.png") },
-        { name: "Ivysaur", image: require("../assets/images/Ivysaur.png") },
-        { name: "Venusaur", image: require("../assets/images/Venusaur.png") },
-    ],
-  },
-  3: {
-    id: 3,
-    name: "Venusaur",
-    image: require("../assets/images/Venusaur.png"),
-    types: ["grass", "poison"],
-    weaknesses: ["fire", "ice", "flying", "psychic"],
-    weight: "100.0 kg",
-    height: "2.0 m",
-    stats: {
-      hp: 80,
-      attack: 82,
-      defense: 83,
-      speed: 80,
-    },
-    evolutionLine: [
-        { name: "Bulbasaur", image: require("../assets/images/Bulbasaur.png") },
-        { name: "Ivysaur", image: require("../assets/images/Ivysaur.png") },
-        { name: "Venusaur", image: require("../assets/images/Venusaur.png") },
-    ],
-  },
+// Obtener la cantidad total de Pokémon disponibles
+export const getTotalPokemonCount = async (): Promise<number> => {
+  try {
+    const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1');
+    const data = await response.json();
+    return data.count;
+  } catch (error) {
+    console.error("Error fetching total Pokémon count:", error);
+    return 0;
+  }
 };
 
-export const getPokemonList = (): Pokemon[] => pokemonListData;
+// Función optimizada para obtener lista de Pokémon
+export const getPokemonList = async (limit: number = 20, offset: number = 0): Promise<Pokemon[]> => {
+  try {
+    const response = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=${limit}&offset=${offset}`);
+    const data = await response.json();
+    
+    const pokemonPromises = data.results.map(async (result: any) => {
+      try {
+        const pokemonResponse = await fetch(result.url);
+        const pokemonData = await pokemonResponse.json();
+        
+        return {
+          id: pokemonData.id,
+          name: pokemonData.name,
+          image: pokemonData.sprites.other['official-artwork']?.front_default || 
+                 pokemonData.sprites.front_default,
+          types: pokemonData.types.map((type: any) => type.type.name),
+        };
+      } catch (error) {
+        console.error(`Error fetching Pokémon from URL ${result.url}:`, error);
+        return null;
+      }
+    });
 
-export const getPokemonDetail = (id: number): PokemonDetail | undefined =>
-  pokemonDetailsData[id];
+    const pokemonList = await Promise.all(pokemonPromises);
+    return pokemonList.filter(pokemon => pokemon !== null) as Pokemon[];
+  } catch (error) {
+    console.error("Error fetching Pokémon list:", error);
+    return [];
+  }
+};
+
+// Función para obtener un Pokémon por ID
+export const getPokemonById = async (id: number): Promise<Pokemon | null> => {
+  try {
+    const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+    const pokemonData = await response.json();
+    
+    return {
+      id: pokemonData.id,
+      name: pokemonData.name,
+      image: pokemonData.sprites.other['official-artwork'].front_default || 
+             pokemonData.sprites.front_default,
+      types: pokemonData.types.map((type: any) => type.type.name),
+      abilities: pokemonData.abilities.map((ability: any) => ability.ability.name),
+      stats: {
+        hp: pokemonData.stats[0].base_stat,
+        attack: pokemonData.stats[1].base_stat,
+        defense: pokemonData.stats[2].base_stat,
+        specialAttack: pokemonData.stats[3].base_stat,
+        specialDefense: pokemonData.stats[4].base_stat,
+        speed: pokemonData.stats[5].base_stat,
+      }
+    };
+  } catch (error) {
+    console.error(`Error fetching Pokémon with ID ${id}:`, error);
+    return null;
+  }
+};
+
+// Función para buscar Pokémon por nombre
+export const searchPokemonByName = async (name: string): Promise<Pokemon | null> => {
+  try {
+    const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${name.toLowerCase()}`);
+    const pokemonData = await response.json();
+    
+    return {
+      id: pokemonData.id,
+      name: pokemonData.name,
+      image: pokemonData.sprites.other['official-artwork'].front_default || 
+             pokemonData.sprites.front_default,
+      types: pokemonData.types.map((type: any) => type.type.name),
+      abilities: pokemonData.abilities.map((ability: any) => ability.ability.name),
+      stats: {
+        hp: pokemonData.stats[0].base_stat,
+        attack: pokemonData.stats[1].base_stat,
+        defense: pokemonData.stats[2].base_stat,
+        specialAttack: pokemonData.stats[3].base_stat,
+        specialDefense: pokemonData.stats[4].base_stat,
+        speed: pokemonData.stats[5].base_stat,
+      }
+    };
+  } catch (error) {
+    console.error(`Error fetching Pokémon with name ${name}:`, error);
+    return null;
+  }
+};
