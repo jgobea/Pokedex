@@ -1,5 +1,5 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Importar AsyncStorage
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import AsyncStorage from "@react-native-async-storage/async-storage"; // Importar AsyncStorage
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -13,15 +13,21 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import RadioGroup, { RadioButtonProps } from "react-native-radio-buttons-group";
-import { getPokemonById, getPokemonList, getTotalPokemonCount, Pokemon, searchPokemonByName } from "../../services/pokemonService";
+import {
+  getPokemonById,
+  getPokemonList,
+  getTotalPokemonCount,
+  Pokemon,
+  searchPokemonByName,
+} from "../../services/pokemonService";
 
 type AnimatedValuesType = Record<number, Animated.Value>;
 
 const PAGE_SIZE = 50; // Número de Pokémon por página
-const FAVORITES_KEY = 'favoritePokemons'; // Clave para almacenar favoritos
+const FAVORITES_KEY = "favoritePokemons"; // Clave para almacenar favoritos
 
 export default function App() {
   const router = useRouter();
@@ -54,8 +60,8 @@ export default function App() {
       if (storedFavorites !== null) {
         setFavorites(JSON.parse(storedFavorites));
       }
-    } catch (error) {
-      console.error('Error loading favorites:', error);
+    } catch {
+      console.error("Error loading favorites");
     }
   };
 
@@ -63,17 +69,17 @@ export default function App() {
   const saveFavorites = async (newFavorites: number[]) => {
     try {
       await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(newFavorites));
-    } catch (error) {
-      console.error('Error saving favorites:', error);
+    } catch {
+      console.error("Error saving favorites");
     }
   };
 
   // Alternar Pokémon como favorito
   const toggleFavorite = (pokemonId: number) => {
     const newFavorites = favorites.includes(pokemonId)
-      ? favorites.filter(id => id !== pokemonId) // Remover si ya es favorito
+      ? favorites.filter((id) => id !== pokemonId) // Remover si ya es favorito
       : [...favorites, pokemonId]; // Agregar si no es favorito
-    
+
     setFavorites(newFavorites);
     saveFavorites(newFavorites);
   };
@@ -84,23 +90,23 @@ export default function App() {
       // Obtener el total de Pokémon disponibles
       const total = await getTotalPokemonCount();
       setTotalPokemon(total);
-      
+
       // Cargar primera página
       const pokemonList = await getPokemonList(PAGE_SIZE, 0);
       setPokemonData(pokemonList);
       setFilteredPokemonData(pokemonList);
-      
+
       // Inicializar valores animados
-      pokemonList.forEach(pokemon => {
+      pokemonList.forEach((pokemon) => {
         animatedValues[pokemon.id] = new Animated.Value(1);
       });
-      
+
       setError(null);
       setHasMore(pokemonList.length === PAGE_SIZE);
       setCurrentPage(1); // Reiniciar a la primera página
-    } catch (err) {
+    } catch {
       setError("Error al cargar los Pokémon");
-      console.error(err);
+      console.error("Error al cargar los Pokémon");
     } finally {
       setLoading(false);
     }
@@ -113,20 +119,21 @@ export default function App() {
       setLoadingMore(true);
       const nextPage = currentPage + 1;
       const offset = (nextPage - 1) * PAGE_SIZE;
-      
+
       const newPokemonList = await getPokemonList(PAGE_SIZE, offset);
-      
+
       if (newPokemonList.length > 0) {
         // Filtrar Pokémon que ya existen (por si hay duplicados)
         const uniqueNewPokemon = newPokemonList.filter(
-          newPokemon => !pokemonData.some(existing => existing.id === newPokemon.id)
+          (newPokemon) =>
+            !pokemonData.some((existing) => existing.id === newPokemon.id)
         );
 
-        setPokemonData(prev => [...prev, ...uniqueNewPokemon]);
-        setFilteredPokemonData(prev => [...prev, ...uniqueNewPokemon]);
-        
+        setPokemonData((prev) => [...prev, ...uniqueNewPokemon]);
+        setFilteredPokemonData((prev) => [...prev, ...uniqueNewPokemon]);
+
         // Inicializar valores animados para los nuevos Pokémon
-        uniqueNewPokemon.forEach(pokemon => {
+        uniqueNewPokemon.forEach((pokemon) => {
           animatedValues[pokemon.id] = new Animated.Value(1);
         });
 
@@ -135,8 +142,8 @@ export default function App() {
       } else {
         setHasMore(false);
       }
-    } catch (err) {
-      console.error("Error loading more Pokémon:", err);
+    } catch {
+      console.error("Error loading more Pokémon");
     } finally {
       setLoadingMore(false);
     }
@@ -146,7 +153,7 @@ export default function App() {
     // Limpiar cualquier búsqueda activa
     setSearchText("");
     setSearching(false);
-    
+
     setRefreshing(true);
     await loadInitialData();
     setRefreshing(false);
@@ -169,14 +176,14 @@ export default function App() {
           if (pokemon) {
             setFilteredPokemonData([pokemon]);
             // Agregar a pokemonData solo si no existe
-            if (!pokemonData.some(p => p.id === pokemon.id)) {
-              setPokemonData(prev => [...prev, pokemon]);
+            if (!pokemonData.some((p) => p.id === pokemon.id)) {
+              setPokemonData((prev) => [...prev, pokemon]);
               animatedValues[pokemon.id] = new Animated.Value(1);
             }
           } else {
             setFilteredPokemonData([]);
           }
-        } catch (err) {
+        } catch {
           setFilteredPokemonData([]);
         } finally {
           setSearching(false);
@@ -185,7 +192,9 @@ export default function App() {
         // Búsqueda por número
         const number = parseInt(searchText);
         if (!isNaN(number)) {
-          const localResult = pokemonData.filter((pokemon) => pokemon.id === number);
+          const localResult = pokemonData.filter(
+            (pokemon) => pokemon.id === number
+          );
           if (localResult.length > 0) {
             setFilteredPokemonData(localResult);
             setSearching(false);
@@ -194,14 +203,14 @@ export default function App() {
               const pokemon = await getPokemonById(number);
               if (pokemon) {
                 setFilteredPokemonData([pokemon]);
-                if (!pokemonData.some(p => p.id === pokemon.id)) {
-                  setPokemonData(prev => [...prev, pokemon]);
+                if (!pokemonData.some((p) => p.id === pokemon.id)) {
+                  setPokemonData((prev) => [...prev, pokemon]);
                   animatedValues[pokemon.id] = new Animated.Value(1);
                 }
               } else {
                 setFilteredPokemonData([]);
               }
-            } catch (err) {
+            } catch {
               setFilteredPokemonData([]);
             } finally {
               setSearching(false);
@@ -229,8 +238,11 @@ export default function App() {
   const handleScroll = (event: any) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const paddingToBottom = 20;
-    
-    if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
+
+    if (
+      layoutMeasurement.height + contentOffset.y >=
+      contentSize.height - paddingToBottom
+    ) {
       loadMorePokemon();
     }
   };
@@ -286,12 +298,13 @@ export default function App() {
     }
   };
 
-  const goToHome = () => router.push('/home');
-  const goToPokemonDetail = (id: number) => router.push({ pathname: "/pokemonDetail", params: { id } });
+  const goToHome = () => router.push("/home");
+  const goToPokemonDetail = (id: number) =>
+    router.push({ pathname: "/pokemonDetail", params: { id } });
 
   const renderFooter = () => {
     if (!loadingMore) return null;
-    
+
     return (
       <View style={styles.footerContainer}>
         <ActivityIndicator size="small" color="#982AEF" />
@@ -302,15 +315,17 @@ export default function App() {
 
   const renderEmptyState = () => {
     if (loading) return null;
-    
+
     if (searchText) {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No se encontraron resultados para {searchText}</Text>
+          <Text style={styles.emptyText}>
+            No se encontraron resultados para {searchText}
+          </Text>
         </View>
       );
     }
-    
+
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>No hay Pokémon para mostrar</Text>
@@ -338,9 +353,7 @@ export default function App() {
           <Text style={styles.statsText}>
             Mostrando {filteredPokemonData.length} de {totalPokemon} Pokémon
           </Text>
-          <Text style={styles.statsText}>
-            Favoritos: {favorites.length}
-          </Text>
+          <Text style={styles.statsText}>Favoritos: {favorites.length}</Text>
         </View>
 
         <View style={styles.inputContainer}>
@@ -358,8 +371,12 @@ export default function App() {
             onChangeText={handleInputChange}
             keyboardType={searchMode === "number" ? "numeric" : "default"}
           />
-          {(searching) && (
-            <ActivityIndicator size="small" color="#982AEF" style={styles.searchIndicator} />
+          {searching && (
+            <ActivityIndicator
+              size="small"
+              color="#982AEF"
+              style={styles.searchIndicator}
+            />
           )}
         </View>
 
@@ -389,7 +406,10 @@ export default function App() {
           ) : error ? (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>{error}</Text>
-              <TouchableOpacity onPress={loadInitialData} style={styles.retryButton}>
+              <TouchableOpacity
+                onPress={loadInitialData}
+                style={styles.retryButton}
+              >
                 <Text style={styles.retryButtonText}>Reintentar</Text>
               </TouchableOpacity>
             </View>
@@ -424,28 +444,39 @@ export default function App() {
                     ]}
                   >
                     <Text style={styles.cardNumber}>#{pokemon.id}</Text>
-                    
+
                     {/* Botón de favorito */}
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={styles.favoriteButton}
                       onPress={(e) => {
                         e.stopPropagation(); // Evitar que se active el onPress de la tarjeta
                         toggleFavorite(pokemon.id);
                       }}
                     >
-                      <MaterialIcons 
-                        name={favorites.includes(pokemon.id) ? "favorite" : "favorite-border"} 
-                        size={20} 
-                        color={favorites.includes(pokemon.id) ? "#FF0000" : "#666"} 
+                      <MaterialIcons
+                        name={
+                          favorites.includes(pokemon.id)
+                            ? "favorite"
+                            : "favorite-border"
+                        }
+                        size={20}
+                        color={
+                          favorites.includes(pokemon.id) ? "#FF0000" : "#666"
+                        }
                       />
                     </TouchableOpacity>
-                    
+
                     <View style={styles.imageContainer}>
                       <Image
                         source={{ uri: pokemon.image }}
                         style={styles.pokemonImage}
                         resizeMode="contain"
-                        onError={(e) => console.log('Error loading image:', e.nativeEvent.error)}
+                        onError={(e) =>
+                          console.log(
+                            "Error loading image:",
+                            e.nativeEvent.error
+                          )
+                        }
                       />
                     </View>
                     <Text style={styles.cardName}>{pokemon.name}</Text>
@@ -461,7 +492,7 @@ export default function App() {
                   </Animated.View>
                 </TouchableOpacity>
               ))}
-              
+
               {filteredPokemonData.length === 0 && renderEmptyState()}
               {renderFooter()}
             </ScrollView>
@@ -505,7 +536,7 @@ const styles = StyleSheet.create({
   homeButton: {
     padding: 8,
     borderRadius: 50,
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: "rgba(0,0,0,0.2)",
   },
   inputContainer: {
     flexDirection: "row",
@@ -599,78 +630,78 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     marginBottom: 15,
-    alignItems: 'center',
+    alignItems: "center",
   },
   statsText: {
-    color: 'white',
+    color: "white",
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     marginBottom: 5,
   },
   footerContainer: {
     padding: 20,
-    alignItems: 'center',
-    width: '100%',
+    alignItems: "center",
+    width: "100%",
   },
   footerText: {
-    color: '#ccc',
+    color: "#ccc",
     marginTop: 10,
     fontSize: 14,
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 40,
-    width: '100%',
+    width: "100%",
   },
   emptyText: {
-    color: '#ccc',
+    color: "#ccc",
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   typesContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginTop: 5,
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+    flexWrap: "wrap",
+    justifyContent: "center",
   },
   typeText: {
     fontSize: 10,
-    color: '#666',
+    color: "#666",
     marginHorizontal: 2,
-    textTransform: 'capitalize',
+    textTransform: "capitalize",
   },
   searchIndicator: {
     marginLeft: 10,
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
-    color: '#fff',
+    color: "#fff",
     marginTop: 10,
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   errorText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
     marginBottom: 20,
   },
   retryButton: {
-    backgroundColor: '#982AEF',
+    backgroundColor: "#982AEF",
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 5,
   },
   retryButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: "#fff",
+    fontWeight: "bold",
   },
 });

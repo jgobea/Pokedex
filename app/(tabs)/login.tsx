@@ -1,8 +1,8 @@
-import { NavigationContainer } from "@react-navigation/native";
 import {
   createNativeStackNavigator,
   NativeStackScreenProps,
 } from "@react-navigation/native-stack";
+import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
@@ -14,7 +14,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useRouter } from "expo-router";
 
 // Importa la imagen desde assets
 
@@ -30,15 +29,42 @@ type LoginProps = NativeStackScreenProps<RootStackParamList, "Login">;
 // Pantalla de Login
 function LoginScreen({ navigation }: LoginProps) {
   const router = useRouter();
-  const [usuario, setUsuario] = useState("");
+  const [name, setName] = useState("");
   const [contrasena, setContrasena] = useState("");
 
-  const handleLogin = () => {
-    if (usuario === "Ash" && contrasena === "Pikachu") {
-      Alert.alert("¡Éxito!", "Bienvenido a tu Pokédex, entrenador!");
-      router.push("/home");
-    } else {
-      Alert.alert("Error", "Usuario o contraseña incorrectos.");
+  const handleLogin = async () => {
+    if (!name || !contrasena) {
+      Alert.alert("Error", "Debes completar todos los campos.");
+      return;
+    }
+    try {
+      const response = await fetch("http://192.168.1.104:3001/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: `query($name: String!) { user(name: $name) { name password } }`,
+          variables: { name },
+        }),
+      });
+      const result = await response.json();
+      const user = result.data?.user;
+      if (user && user.password === contrasena) {
+        // Guardar el nombre de usuario en AsyncStorage
+        try {
+          const AsyncStorage = (
+            await import("@react-native-async-storage/async-storage")
+          ).default;
+          await AsyncStorage.setItem("trainerName", name);
+        } catch {
+          /* ignore */
+        }
+        Alert.alert("¡Éxito!", "Bienvenido a tu Pokédex, entrenador!");
+        router.push("/home");
+      } else {
+        Alert.alert("Error", "Usuario o contraseña incorrectos.");
+      }
+    } catch {
+      Alert.alert("Error", "No se pudo conectar con el servidor.");
     }
   };
 
@@ -55,8 +81,8 @@ function LoginScreen({ navigation }: LoginProps) {
             placeholder="Nombre de entrenador"
             placeholderTextColor="#ffffffff"
             style={styles.inputFixed}
-            value={usuario}
-            onChangeText={setUsuario}
+            value={name}
+            onChangeText={setName}
           />
           <TextInput
             placeholder="Contraseña de entrenador"
@@ -82,14 +108,34 @@ type RegistroProps = NativeStackScreenProps<RootStackParamList, "Registro">;
 
 // Pantalla de Registro
 function RegistroScreen({ navigation }: RegistroProps) {
-  const [usuario, setUsuario] = useState("");
-  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
   const [contrasena, setContrasena] = useState("");
 
-  const handleRegistro = () => {
-    if (usuario && email && contrasena) {
-      Alert.alert("¡Registro exitoso!", `Usuario ${usuario} creado`);
-      navigation.goBack();
+  const handleRegistro = async () => {
+    if (name && contrasena) {
+      try {
+        const response = await fetch("http://192.168.1.104:3001/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: `mutation($name: String!, $password: String!) { register(name: $name, password: $password) { name } }`,
+            variables: { name, password: contrasena },
+          }),
+        });
+        const data = await response.json();
+        if (data.data && data.data.register) {
+          Alert.alert("¡Registro exitoso!", `Usuario ${name} creado`);
+          navigation.goBack();
+        } else {
+          Alert.alert(
+            "Error",
+            (data.errors && data.errors[0]?.message) ||
+              "No se pudo registrar el usuario."
+          );
+        }
+      } catch {
+        Alert.alert("Error", "No se pudo conectar con el servidor.");
+      }
     } else {
       Alert.alert("Error", "Debes completar todos los campos.");
     }
@@ -108,16 +154,8 @@ function RegistroScreen({ navigation }: RegistroProps) {
             placeholder="Nombre de entrenador"
             placeholderTextColor="#ffffffff"
             style={styles.inputFixed}
-            value={usuario}
-            onChangeText={setUsuario}
-          />
-          <TextInput
-            placeholder="Correo electrónico"
-            placeholderTextColor="#ffffffff"
-            style={styles.inputFixed}
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
+            value={name}
+            onChangeText={setName}
           />
           <TextInput
             placeholder="Contraseña de entrenador"
